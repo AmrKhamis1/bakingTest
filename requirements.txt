@@ -1,0 +1,12 @@
+open3d>=0.17.0
+numpy>=1.24
+scipy>=1.10
+pillow>=10.0
+pyyaml>=6.0
+pye57>=0.4.4
+pdal>=3.3.0
+opencv-python-headless>=4.8
+trimesh>=4.0
+shapely>=2.0
+jsonschema>=4.19
+rich>=13.7
