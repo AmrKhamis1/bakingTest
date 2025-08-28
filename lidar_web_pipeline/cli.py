@@ -3,19 +3,38 @@ import os
 import time
 from dataclasses import dataclass
 
-from .utils.logging import get_logger
-from .utils.paths import (
-	ensure_dir,
-	OutputPaths,
-)
-from .io.loaders import load_inputs
-from .registration.register import register_scans_if_needed
-from .processing.clean import clean_point_cloud
-from .processing.mesh import reconstruct_mesh
-from .texturing.pano_extract import extract_panoramas_and_poses
-from .texturing.project_colors import color_mesh_from_panos_or_points
-from .texturing.blender_bake import bake_vertex_colors_and_export
-from .export.package import write_metadata_json
+# Support running as a script or as a module
+try:
+	from .utils.logging import get_logger
+	from .utils.paths import (
+		ensure_dir,
+		OutputPaths,
+	)
+	from .io.loaders import load_inputs
+	from .registration.register import register_scans_if_needed
+	from .processing.clean import clean_point_cloud
+	from .processing.mesh import reconstruct_mesh
+	from .texturing.pano_extract import extract_panoramas_and_poses
+	from .texturing.project_colors import color_mesh_from_panos_or_points
+	from .texturing.blender_bake import bake_vertex_colors_and_export
+	from .export.package import write_metadata_json
+except ImportError:
+	import sys as _sys
+	import os as _os
+	_sys.path.append(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+	from lidar_web_pipeline.utils.logging import get_logger
+	from lidar_web_pipeline.utils.paths import (
+		ensure_dir,
+		OutputPaths,
+	)
+	from lidar_web_pipeline.io.loaders import load_inputs
+	from lidar_web_pipeline.registration.register import register_scans_if_needed
+	from lidar_web_pipeline.processing.clean import clean_point_cloud
+	from lidar_web_pipeline.processing.mesh import reconstruct_mesh
+	from lidar_web_pipeline.texturing.pano_extract import extract_panoramas_and_poses
+	from lidar_web_pipeline.texturing.project_colors import color_mesh_from_panos_or_points
+	from lidar_web_pipeline.texturing.blender_bake import bake_vertex_colors_and_export
+	from lidar_web_pipeline.export.package import write_metadata_json
 
 
 @dataclass
@@ -74,16 +93,13 @@ def main() -> None:
 
 	start_time = time.time()
 
-	# 1. Load inputs (point clouds, optional initial poses)
 	logger.info("Loading inputs...")
 	loaded = load_inputs(args.input, logger=logger)
 	logger.info(f"Loaded {len(loaded.point_clouds)} cloud(s)")
 
-	# 2. Registration
 	logger.info("Registering scans if needed...")
 	registered_pcd, registered_poses = register_scans_if_needed(loaded, logger=logger)
 
-	# 3. Cleaning
 	logger.info("Cleaning point cloud...")
 	cleaned_pcd = clean_point_cloud(
 		registered_pcd,
@@ -102,7 +118,6 @@ def main() -> None:
 		except Exception as e:
 			logger.warning(f"Failed to write cleaned point cloud: {e}")
 
-	# 4. Meshing
 	logger.info("Meshing...")
 	mesh = reconstruct_mesh(
 		cleaned_pcd,
@@ -120,12 +135,10 @@ def main() -> None:
 		except Exception as e:
 			logger.warning(f"Failed to write raw mesh: {e}")
 
-	# 5. Extract panoramas and poses (if available)
 	logger.info("Extracting panoramas and poses...")
 	pano_meta = extract_panoramas_and_poses(loaded, output_dir=paths.panos, logger=logger)
 	logger.info(f"Found {len(pano_meta)} panoramas")
 
-	# 6. Project colors onto mesh and bake
 	logger.info("Coloring mesh from panos or point colors...")
 	colored_mesh = color_mesh_from_panos_or_points(
 		mesh=mesh,
@@ -136,7 +149,6 @@ def main() -> None:
 		logger=logger,
 	)
 
-	# 7. Bake vertex colors to texture via Blender and export OBJ+MTL
 	logger.info("Baking and exporting OBJ/MTL...")
 	obj_path, mtl_path, texture_path = bake_vertex_colors_and_export(
 		colored_mesh,
@@ -149,7 +161,6 @@ def main() -> None:
 		logger=logger,
 	)
 
-	# 8. Write metadata
 	logger.info("Writing metadata.json...")
 	metadata_path = os.path.join(paths.base, "metadata.json")
 	write_metadata_json(
